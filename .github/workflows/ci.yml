@@ -1,0 +1,44 @@
+name: CI Docker
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  IMAGE: ${{ vars.DOCKER_USER }}/meu-projeto-fatec
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout do código
+        uses: actions/checkout@v4
+
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Build da imagem
+        run: docker build -t $IMAGE:${{ github.sha }} -t $IMAGE:latest .
+
+      - name: Push para o Docker Hub
+        run: docker push --all-tags $IMAGE
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login no Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ vars.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASS }}
+
+      - name: Baixar a imagem
+        run: docker pull $IMAGE:${{ github.sha }}
+
+      - name: Rodar os testes dentro do container
+        run: docker run --rm $IMAGE:${{ github.sha }} npm test
